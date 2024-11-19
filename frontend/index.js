@@ -3,8 +3,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const response = await fetch("http://localhost:3001/data");
         const data = await response.json();
         let filteredData = [...data]; // Keep original data separate
+        let pinnedStudent = null; // To store the currently pinned student
         const leaderboardBody = document.getElementById('leaderboard-body');
         const sectionFilter = document.getElementById('section-filter');
+        const studentInfoContainer = document.getElementById('student-info-container'); // Container for pinned student info
 
         // Populate section filter dropdown
         const populateSectionFilter = () => {
@@ -53,13 +55,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             sortedData.forEach((student, index) => {
                 const row = document.createElement('tr');
                 row.classList.add('border-b', 'border-gray-700');
+                
+                const isPinned = pinnedStudent && student.roll === pinnedStudent.roll;
                 row.innerHTML = `
                     <td class="p-4">${index + 1}</td>
                     <td class="p-4">${student.roll}</td>
                     <td class="p-4">
-                        ${student.url.startsWith('https://leetcode.com/u/') 
-                            ? `<a href="${student.url}" target="_blank" class="text-blue-400">${student.name}</a>`
-                            : `<div class="text-red-500">${student.name}</div>`}
+                        <span class="text-blue-400 student-name" data-student-id="${index}">${student.name}</span>
                     </td>
                     <td class="p-4">${student.section || 'N/A'}</td>
                     <td class="p-4">${student.totalSolved || 'N/A'}</td>
@@ -67,6 +69,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <td class="p-4 text-yellow-400">${student.mediumSolved || 'N/A'}</td>
                     <td class="p-4 text-red-400">${student.hardSolved || 'N/A'}</td>
                 `;
+                
+                // If this row is pinned, add a special class to highlight it
+                if (isPinned) {
+                    row.classList.add('bg-yellow-100');
+                }
+
                 leaderboardBody.appendChild(row);
             });
         };
@@ -98,6 +106,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                         : valA.toString().localeCompare(valB.toString());
                 }
             });
+        };
+
+        // Function to pin a student row to the top of the leaderboard
+        const pinStudentRow = (student) => {
+            // Remove the pinned student from the filteredData and place at the top
+            filteredData = filteredData.filter(s => s.roll !== student.roll);
+            filteredData.unshift(student);
+            pinnedStudent = student;
+            renderLeaderboard(filteredData);
+            pinStudentInfo(student);
+        };
+
+        // Function to display student info in a sticky container at the top
+        const pinStudentInfo = (student) => {
+            studentInfoContainer.innerHTML = ` 
+                <div class="p-4 bg-blue-200 border-b border-gray-700">
+                    <h2 class="text-xl font-bold">Pinned Student Info</h2>
+                    <p><strong>Name:</strong> ${student.name}</p>
+                    <p><strong>Roll Number:</strong> ${student.roll}</p>
+                    <p><strong>Section:</strong> ${student.section || 'N/A'}</p>
+                    <p><strong>Total Solved:</strong> ${student.totalSolved || 'N/A'}</p>
+                    <p><strong>Easy Solved:</strong> ${student.easySolved || 'N/A'}</p>
+                    <p><strong>Medium Solved:</strong> ${student.mediumSolved || 'N/A'}</p>
+                    <p><strong>Hard Solved:</strong> ${student.hardSolved || 'N/A'}</p>
+                </div>
+            `;
+            studentInfoContainer.style.position = 'sticky';
+            studentInfoContainer.style.top = '0';
+            studentInfoContainer.style.zIndex = '1000';
         };
 
         // Initialize the page
@@ -141,6 +178,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             hardSolvedDirection = hardSolvedDirection === 'desc' ? 'asc' : 'desc';
             const sortedData = sortData(filteredData, 'hardSolved', hardSolvedDirection, true);
             renderLeaderboard(sortedData);
+        });
+
+        // Event listener for student name click
+        leaderboardBody.addEventListener('click', (e) => {
+            if (e.target && e.target.classList.contains('student-name')) {
+                const studentId = e.target.getAttribute('data-student-id');
+                const student = filteredData[studentId];
+                pinStudentRow(student); // Pin student to the top of the leaderboard
+            }
         });
 
     } catch (error) {
